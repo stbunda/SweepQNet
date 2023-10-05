@@ -6,62 +6,126 @@ from keras.models import Sequential
 from contextlib import redirect_stdout
 # from tensorflow import keras
 from keras.callbacks import ModelCheckpoint
-from keras import (utils, layers, models, activations, optimizers, regularizers, Model)
+from keras import (utils, layers, models, activations, optimizers, regularizers, Model, preprocessing)
+import qkeras
 
-def SE_block(x_0, r = 16):
-    channels = x_0.shape[-1]
-    x = layers.GlobalAvgPool2D()(x_0)
-   
-    x = x[:, None, None, :]
-    
-    x = layers.Conv2D(filters=channels//r, kernel_size=1, strides=1)(x)
-    x = layers.Activation('relu')(x)
-    x = layers.Conv2D(filters=channels, kernel_size=1, strides=1)(x)
-    x = layers.Activation('sigmoid')(x)
-    x = layers.Multiply()([x_0, x])
-    
-    return x
-    
+
+class QSweepNet:
+    def __init__(self, image_height, image_width, qbits=8):
+        self.width = image_width
+        self.height = image_height
+
+        self.ksize = (2, 2)
+        self.stride = (1, 1)
+        self.l2_lambda = 0.0001
+        self.pool = (2, 2)
+        self.shape = (self.height, self.width, 1)
+
+        # Quantization stuff
+        self.qbits = qbits
+        self.quantized_bits = qkeras.quantized_bits(
+            bits=self.qbits,
+            integer=self.qbits,
+            alpha='auto',
+            symmetric=True,
+            use_stochastic_rounding=False)
+
+        self.quantized_relu = qkeras.quantized_relu(
+            bits=self.qbits,
+            integer=3)
+
+        self.quantized_sigmoid = qkeras.quantized_sigmoid(
+            bits=self.qbits)
+
+    def model(self):
+        inputs = layers.Input(self.shape)
+
+        sweepcnn = qkeras.QConv2D(filters=32, kernel_size=self.ksize, padding='valid', strides=self.stride,
+                                  kernel_quantizer=self.quantized_bits)(inputs)
+        sweepcnn = qkeras.QActivation(self.quantized_relu)(sweepcnn)
+
+        sweepcnn = layers.MaxPooling2D(pool_size=self.pool, strides=self.stride, padding='valid')(sweepcnn)
+
+        sweepcnn = qkeras.QConv2D(filters=32, kernel_size=self.ksize, padding='valid', strides=self.stride,
+                                  kernel_quantizer=self.quantized_bits)(sweepcnn)
+        sweepcnn = qkeras.QActivation(self.quantized_relu)(sweepcnn)
+
+        sweepcnn = layers.MaxPooling2D(pool_size=self.pool, strides=self.stride, padding='valid')(sweepcnn)
+
+        sweepcnn = qkeras.QConv2D(filters=32, kernel_size=self.ksize, padding='valid', strides=self.stride,
+                                  kernel_quantizer=self.quantized_bits)(sweepcnn)
+        sweepcnn = qkeras.QActivation(self.quantized_relu)(sweepcnn)
+
+        sweepcnn = layers.MaxPooling2D(pool_size=self.pool, strides=self.stride, padding='valid')(sweepcnn)
+
+        sweepcnn = self.qSE_block(sweepcnn, r=16)
+
+        sweepcnn = qkeras.QDense(32, activation=self.quantized_relu, kernel_quantizer=self.quantized_bits)(sweepcnn)
+        sweepcnn = qkeras.QGlobalAveragePooling2D(average_quantizer=self.quantized_bits)(sweepcnn)
+        prediction = qkeras.QDense(2, activation=self.quantized_sigmoid, kernel_quantizer=self.quantized_bits)(sweepcnn)
+
+        model = models.Model(inputs=inputs, outputs=prediction)
+
+        model.compile(
+            optimizer='adam',
+            loss="categorical_crossentropy",
+            metrics=[tf.keras.metrics.TopKCategoricalAccuracy(k=1)]
+        )
+        return model
+
+    def qSE_block(self, x_0, r=16):
+        channels = x_0.shape[-1]
+        x = qkeras.QGlobalAveragePooling2D(average_quantizer=self.quantized_bits)(x_0)
+
+        x = x[:, None, None, :]
+        x = qkeras.QConv2D(filters=channels // r, kernel_size=1, strides=1, kernel_quantizer=self.quantized_bits)(x)
+        x = qkeras.QActivation(self.quantized_relu)(x)
+        x = qkeras.QConv2D(filters=channels, kernel_size=1, strides=1, kernel_quantizer=self.quantized_bits)(x)
+        x = qkeras.QActivation(self.quantized_sigmoid)(x)
+        x = layers.Multiply()([x_0, x])
+
+        return x
+
+
 def SweepNet(image_height, image_width):
     width = image_width
     height = image_height
-    ksize = (2,2)
-    stride = (1,1)
+    ksize = (2, 2)
+    stride = (1, 1)
     l2_lambda = 0.0001
-    pool = (2,2)
-    shape = (height,width,1)    
+    pool = (2, 2)
+    shape = (height, width, 1)
     inputs = layers.Input(shape)
-    
-    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride, 
-        activation='relu') (inputs)
-    sweepcnn = layers.MaxPooling2D(pool_size=pool, strides=stride, padding='valid')(sweepcnn)    
-    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride, 
-        activation='relu') (sweepcnn)
-    sweepcnn = layers.MaxPooling2D(pool_size=pool, strides=stride, padding='valid')(sweepcnn)   
-    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride, 
-        activation='relu') (sweepcnn)
+
+    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride,
+                             activation='relu')(inputs)
+    sweepcnn = layers.MaxPooling2D(pool_size=pool, strides=stride, padding='valid')(sweepcnn)
+    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride,
+                             activation='relu')(sweepcnn)
+    sweepcnn = layers.MaxPooling2D(pool_size=pool, strides=stride, padding='valid')(sweepcnn)
+    sweepcnn = layers.Conv2D(filters=32, kernel_size=ksize, padding='valid', strides=stride,
+                             activation='relu')(sweepcnn)
     sweepcnn = layers.MaxPooling2D(pool_size=pool, strides=stride, padding='valid')(sweepcnn)
     sweepcnn = SE_block(sweepcnn, r=16)
 
     sweepcnn = layers.Dense(32, activation='relu')(sweepcnn)
     sweepcnn = layers.GlobalAvgPool2D()(sweepcnn)
     prediction = layers.Dense(2, activation='softmax')(sweepcnn)
-    
+
     model = models.Model(inputs=inputs, outputs=prediction)
 
     model.compile(
-            optimizer='adam',
-            loss="categorical_crossentropy",
-            metrics=[tf.keras.metrics.TopKCategoricalAccuracy(k=1)]
-        )
+        optimizer='adam',
+        loss="categorical_crossentropy",
+        metrics=[tf.keras.metrics.TopKCategoricalAccuracy(k=1)]
+    )
     return model
 
 
- 
 class Training:
-   
+
     def __init__(self, directory, image_height, image_width, epochs, model_Name, out, thread):
-    
+
         tf.config.threading.set_inter_op_parallelism_threads(8)
         self.batch_size = 1
         self.thread = thread
@@ -75,53 +139,50 @@ class Training:
         self.__setDataTrain()
         self.__setDataVal()
 
-
     def traingModel(self):
-        normalization_layer = layers.experimental.preprocessing.Rescaling(scale=1./255)
+        normalization_layer = layers.experimental.preprocessing.Rescaling(scale=1. / 255)
         self.train_ds = self.train_ds.map(lambda x, y: (normalization_layer(x), y))
         self.val_ds = self.val_ds.map(lambda x, y: (normalization_layer(x), y))
         AUTOTUNE = tf.data.experimental.AUTOTUNE
-        self.train_ds = self.train_ds.cache().shuffle(1000).\
+        self.train_ds = self.train_ds.cache().shuffle(1000). \
             prefetch(buffer_size=AUTOTUNE)
         self.val_ds = self.val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
-
         start = time.time()
         tensorboard_callback = tf.keras.callbacks.TensorBoard(self.modelName + "/tensorBoard")
-        
+
         self.modelpath = os.path.join(self.modelName, "/weights.best.hdf5")
         if self.modelN == 'inception_net':
-            checkpoint = ModelCheckpoint(self.modelName + "/weights.best.hdf5", monitor='val_dense_2_accuracy', verbose=1, save_best_only=True, mode='auto')
+            checkpoint = ModelCheckpoint(self.modelName + "/weights.best.hdf5", monitor='val_dense_2_accuracy',
+                                         verbose=1, save_best_only=True, mode='auto')
         else:
-            checkpoint = ModelCheckpoint(self.modelName + "/weights.best.hdf5", monitor='val_top_k_categorical_accuracy', verbose=1, save_best_only=True, mode='auto')
+            checkpoint = ModelCheckpoint(self.modelName + "/weights.best.hdf5",
+                                         monitor='val_top_k_categorical_accuracy', verbose=1, save_best_only=True,
+                                         mode='auto')
         callback_list = [checkpoint]
-        
+
         self.useDevice = '/CPU:0'
         with tf.device(self.useDevice):
             self.model = self.model_Name
-       
 
-               
             self.history = self.model.fit(
                 self.train_ds,
                 validation_data=self.val_ds,
                 verbose=1,
                 epochs=self.epochs,
                 callbacks=[callback_list]
-                )
+            )
         end = time.time()
-        self.exe_time = end-start
-		        
-        
+        self.exe_time = end - start
+
         self.model.summary()
-        
 
         print("Model is saved")
-        
+
         self.__summary()
-  
+
     def __setDataTrain(self):
-    
+
         self.train_ds = tf.keras.preprocessing.image_dataset_from_directory(
             self.directory,
             label_mode='categorical',
@@ -143,9 +204,9 @@ class Training:
             image_size=(self.imageheight, self.imagewidth),
             seed=123,
             batch_size=self.batch_size)
-    
+
     def __summary(self):
-        
+
         if self.modelN == 'inception_net':
             acc = self.history.history['dense_2_accuracy']
             val_acc = self.history.history['val_dense_2_accuracy']
@@ -157,7 +218,7 @@ class Training:
             loss = self.history.history['loss']
             val_loss = self.history.history['val_loss']
         epochs_range = range(self.epochs)
-        
+
         np.savetxt(self.modelName + "/TrainResultsAcc.txt",
                    np.column_stack((epochs_range, acc, val_acc))[:, :],
                    fmt="%s")
@@ -167,8 +228,7 @@ class Training:
         with open((self.modelName + "/TrainExecutionTime.txt"), 'w') as f:
             with redirect_stdout(f):
                 print("The execution time of training is: " + str(self.exe_time))
-                
-        
+
         with open((self.modelName + "/TrainResultsModel.txt"), 'w') as f:
             with redirect_stdout(f):
                 print("amount of files used")
@@ -179,22 +239,22 @@ class Training:
                 print("\nmodel summary\n")
                 self.model.summary()
 
+
 class Load:
-    
+
     def __init__(self, modelName, directory, image_height, image_width, outDirectory, threads):
         self.modelName = modelName
         self.directory = directory
         self.imageheight = image_height
         self.imagewidth = image_width
         self.modelpath = os.path.join(self.modelName, "/weights.best.hdf5")
-        self.loadedModel = keras.models.load_model(self.modelName + "/weights.best.hdf5")
+        self.loadedModel = models.load_model(self.modelName + "/weights.best.hdf5")
         self.outDirectory = outDirectory
         self.resultsData = np.empty((0, 4), float)
-    
+
     def imageSingle(self, imageName):
         self.resultsData = np.empty((0, 4), float)
         self.__performPrediction(self.directory + '/' + imageName)
-        
 
     def imageFolder(self):
         totalAmountOfImages = str(len(os.listdir(self.directory)))
@@ -206,7 +266,7 @@ class Load:
                 if image.is_file():
                     self.__performPrediction(image.name)
         end = time.time()
-        self.exe_time = end-start
+        self.exe_time = end - start
         with open((self.outDirectory + "/TrainExecutionTime.txt"), 'w') as f:
             with redirect_stdout(f):
                 print("The execution time of training is: " + str(self.exe_time))
@@ -214,9 +274,8 @@ class Load:
 
     def generateReport(self):
         self.resultsData = self.resultsData[self.resultsData[:, 0].
-                                            argsort()]
+        argsort()]
         np.savetxt(self.outDirectory + '/PredResults.txt', self.resultsData[:][:], fmt="%s")
-         
 
     def __performPrediction(self, imageName):
         img = tf.keras.preprocessing.image.load_img(
@@ -225,9 +284,9 @@ class Load:
             target_size=(int(self.imageheight), int(self.imagewidth))
         )
         # create an image array from the image
-        img_array = keras.preprocessing.image.img_to_array(img)
+        img_array = preprocessing.image.img_to_array(img)
         # perform the pre-processing
-        img_array = (img_array * (1./255))
+        img_array = (img_array * (1. / 255))
         # add the dimension
         img_array = tf.expand_dims(img_array, 0)
         self.useDevice = '/CPU:0'
@@ -249,9 +308,8 @@ class Load:
 
         self.resultsData = np.append(self.resultsData,
                                      np.array([[str(window),
-                                     		  int(classname),
+                                                int(classname),
                                                 float(scoreNeutral),
                                                 float(scoreSelected)
                                                 ]]),
                                      axis=0)
-

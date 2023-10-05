@@ -25,7 +25,7 @@ helpprint()
 	exit 1
 }
 
-current_path=/home/david/project/12ReorderStrategies
+current_path=C:\Users\BundaST\PycharmProjects\SweepQNet
 
 modeA=0
 modeB=0

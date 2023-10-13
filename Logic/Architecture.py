@@ -60,11 +60,10 @@ def SweepNet(image_height, image_width):
  
 class Training:
    
-    def __init__(self, directory, image_height, image_width, epochs, model_Name, out, thread):
+    def __init__(self, directory, image_height, image_width, epochs, model_Name, out, threads):
     
-        tf.config.threading.set_inter_op_parallelism_threads(8)
+        tf.config.threading.set_inter_op_parallelism_threads(threads)
         self.batch_size = 1
-        self.thread = thread
         self.epochs = epochs
         self.directory = directory
         self.imageheight = image_height

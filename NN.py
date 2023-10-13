@@ -41,18 +41,21 @@ def help():
 
 
 def main(argv):
-    opts, ars = getopt.getopt(argv, "d:n:h:w:e:m:o:t:s:c:",
-                              ["directory=", "mode=", "height=", "width=", "epoch=", "model=", "outpath=", "threads=",
-                               "thread=", "hardware=", "help"])
+    opts, ars = getopt.getopt(argv, "d:n:h:w:e:m:o:t:c:",
+                              ["directory=", "mode=", "height=", "width=", "epoch=", "model=", "outpath=",
+                               "threads=", "help"])
 
     epoch = 10
+    height = 128
+    width = 128
     threads = 8
+
     hardware = "CPU"
     model = "SweepNet"
 
     for opt, arg in opts:
         if opt in ("-d", "--directory"):
-            direct = arg
+            dir = arg
         elif opt in ("-n", "--mode"):
             mod = arg
         elif opt in ("-h", "--height"):
@@ -67,17 +70,13 @@ def main(argv):
             out = arg
         elif opt in ("-t", "--threads"):
             threads = arg
-        elif opt in ("-s", "--thread"):
-            thread = arg
-        elif opt in ("-c", "--hardware"):
-            hardware = arg
         elif opt in ("--help"):
             help()
             return 0
 
     if (mod == "train"):
-        trainModel = Architecture.Training(direct, int(float(height)), int(float(width)), int(epoch), model, out,
-                                           int(threads), int(thread), hardware)
+        trainModel = Architecture.Training(dir, int(float(height)), int(float(width)), int(epoch), model, out,
+                                           int(threads))
         trainModel.traingModel()
 
     if (mod == "predict"):

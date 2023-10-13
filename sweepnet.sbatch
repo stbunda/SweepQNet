@@ -31,6 +31,6 @@ echo "Gpu devices                 : "$CUDA_VISIBLE_DEVICES
 echo "Starting worker: "
 
 # Create data:
-./bin/release/iRAiSD -n sweepnetd1 -I DATASETS/D1/DATA1_S128_P1000/train/neutral.ms -L 100000
+./bin/release/iRAiSD -n sweepnetd1 -I DATASETS/D1/DATA1_S128_P1000/train/neutral.ms -L 100000 -n data
 
 #sh TrainTest.sh -m SweepNet -c bp -i DATASETS/D1/DATA1_S128_P1000 -o data -h 128 -n 128 -s 5000 -l 100000 -r 5 -e 10 -t black

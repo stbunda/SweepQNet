@@ -186,7 +186,7 @@ class Load:
         self.imageheight = image_height
         self.imagewidth = image_width
         self.modelpath = os.path.join(self.modelName, "/weights.best.hdf5")
-        self.loadedModel = keras.models.load_model(self.modelName + "/weights.best.hdf5")
+        self.loadedModel = models.load_model(self.modelName + "/weights.best.hdf5")
         self.outDirectory = outDirectory
         self.resultsData = np.empty((0, 4), float)
     

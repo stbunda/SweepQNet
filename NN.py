@@ -86,7 +86,7 @@ def main(argv):
             shutil.rmtree(out)
             os.makedirs(out)
 
-        loadModel = Architecture.Load(model, direct, height, width, out, int(threads), int(thread), hardware)
+        loadModel = Architecture.Load(model, dir, height, width, out, int(threads))
         numberOfImages = loadModel.imageFolder()
         loadModel.generateReport()
 

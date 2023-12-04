@@ -2,7 +2,7 @@
 
 First release: 1/3/2023
 
-Last update: 28/9/2023
+Last update: 04/12/2023
 
 Version: 1.0
 
@@ -15,12 +15,14 @@ The article describing SweepNet is published in _PASC2023 (Platform for Advanced
 
    URL: https://dl.acm.org/doi/abs/10.1145/3592979.3593411
 
+This version is the PyTorch implementation. Build with the help of Sjoerd van den Belt and Hanqing Zhao.
+
 ## Environmental Setup
-SweepNet uses Keras, a high-level API which using TensorFlow as its backend, to build the network. To avoid package dependencies, we recommend to use Anaconda to build virtual environment. The installation of Anaconda can be found via https://www.anaconda.com/
+SweepNet uses PyTorch to build the network. To avoid package dependencies, we recommend to use Anaconda to build virtual environment. The installation of Anaconda can be found via https://www.anaconda.com/
 
 To build virtual environment by command:
 
-``conda create -n myenv python=3.8 protobuf tensorflow=2.8 keras=2.8 numpy h5py matplotlib=3.4.1 tensorboard=2.8 pillow=7.0.0``
+``conda create -n myenv python=3.8 protobuf numpy h5py matplotlib=3.4.1 pillow=7.0.0 pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.8 -c pytorch -c nvidia``
 
 "myenv" as the name of virtual environment, can be changed.
 
@@ -48,6 +50,10 @@ The already-generated datasets used in the paper can be downloaded via https://f
 _ms2txt_ is an already-generated C program compiled under x86 architecture. For users work on different architecture, the following command can be used to compile the C code _Extract.c_.
 
 ``gcc Extract.c -o ms2txt -lm``
+
+To allow ms2txt to modify files:
+
+``chmod +x ms2txt``
 
 
 ## A quick example

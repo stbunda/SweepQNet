@@ -41,71 +41,26 @@ class shuffleDim(torch.nn.Module):
     
 class CustomImageFolder(torchvision.datasets.DatasetFolder):
     
-    def __init__(self, root, load_binary, transform, mix_images, train_detect):
+    def __init__(self, root, transform, mix_images):
         print(root)
-        if load_binary:
-            extensions = (".snp",)
-            loader = snp_file_loader
-        else:
-            extensions = (".png",)
-            loader = torchvision.datasets.folder.default_loader
+        extensions = (".png",)
+        loader = torchvision.datasets.folder.default_loader
             
         super().__init__(root, transform=transform, extensions=extensions, loader=loader)
         self.mix_images = mix_images
-        self.load_binary = load_binary
-        self.train_detect = train_detect
     
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         
         path, target = self.samples[index]
         
-        if self.load_binary:
-            sample, target_pos = self.loader(path)
-        else:
-            sample = self.loader(path)
+        sample = self.loader(path)
         
         if self.transform is not None:
             sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
         
-        sample[0:2, :, :] = sample[0:2, :, :] / 100.0
-
-            
-        # if self.mix_images:
-        #     new_path, new_target = self.samples[np.random.randint(0, len(self.samples))]
-        #     if new_target != target:
-        #         sel_class = self.class_to_idx['sel']
-        #         combine_ratio = np.random.randint(1, sample.shape[2])
-        #         new_sample = self.transform(self.loader(new_path))
-                
-        #         # temporary implementation of loading full bp distances    
-        #         bp_dist_path = new_path[:-3] + "txt"
-        #         bp_dist_file = open(bp_dist_path, "r")
-        #         bp_dist_list = np.asarray(bp_dist_file.readlines())
-        #         bp_dist_list = bp_dist_list.astype(float)
-        #         bp_dist_list = np.broadcast_to(bp_dist_list, new_sample[0].shape)
-        #         bp_dist_tensor = torch.tensor(bp_dist_list)
-        #         new_sample[0] = bp_dist_tensor
-        #         new_sample[1] = bp_dist_tensor
-
-        #         sample[:, :, :combine_ratio] = new_sample[:, :, :combine_ratio]
-                    
-        #         target = torch.nn.functional.one_hot(torch.tensor(target), num_classes=2)
-        #         new_target = torch.nn.functional.one_hot(torch.tensor(new_target), num_classes=2)
-                
-        #         target = target * (1 - (combine_ratio/new_sample.shape[2]))
-        #         new_target = new_target * (combine_ratio/new_sample.shape[2])
-                    
-        #         target = target + new_target
-        #     else:
-        #         target = torch.nn.functional.one_hot(torch.tensor(target), num_classes=2)    
-        if self.train_detect:
-            target_oh = torch.nn.functional.one_hot(torch.tensor(target), num_classes=2).float()
-            if target == self.class_to_idx['sel']:
-                target_oh[target] = max(1-abs(33.33*(0.5-(target_pos/100000))), 0) # decays linearly from center
-                target_oh[self.class_to_idx['neu']] = 1 - target_oh[target]
-            target = target_oh
+        # sample[0:2, :, :] = sample[0:2, :, :] / 100.0
 
         return path, sample, target
     
@@ -177,11 +132,10 @@ class NoClassImageFolder(CustomImageFolder):
     
 
 
-def get_loader(data_path, batch_size, class_folders, shuffle, load_binary, shuffle_row, mix_images, validation, train_detect):
+def get_loader(data_path, batch_size, class_folders, shuffle, shuffle_row, mix_images, validation):
     
     transform_list = []
-    if not load_binary:
-        transform_list.append(transforms.ToTensor())
+    transform_list.append(transforms.ToTensor())
     
     if shuffle_row:
         transform_list.append(shuffleDim(1))
@@ -189,9 +143,9 @@ def get_loader(data_path, batch_size, class_folders, shuffle, load_binary, shuff
     transform = transforms.Compose(transform_list)
     
     if not class_folders:
-        dataset = NoClassImageFolder(root=data_path, load_binary=load_binary, transform=transform, mix_images=mix_images, train_detect=train_detect)
+        dataset = NoClassImageFolder(root=data_path, transform=transform, mix_images=mix_images)
     else:
-        dataset = CustomImageFolder(root=data_path, load_binary=load_binary, transform=transform, mix_images=mix_images, train_detect=train_detect)
+        dataset = CustomImageFolder(root=data_path, transform=transform, mix_images=mix_images)
         
     # added to filter training samples for detection training
     # if train_detect:

@@ -13,27 +13,29 @@ def test_model(model, test_loader, platform):
     model.to(device)
     model.eval()
     with torch.no_grad():
-        num_correct = 0
-        num_total = 0
+        num_correct_neutral = 0
+        num_correct_selection = 0
+        num_total_neutral = 0
+        num_total_selection = 0
         
         start_time = time.perf_counter()
         for i, data in enumerate(test_loader):
             paths, inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)          
             outputs = model(inputs)
+
+            num_correct_neutral += torch.sum((torch.argmax(outputs, dim=1) == labels) & (labels == 0))
+            num_correct_selection += torch.sum((torch.argmax(outputs, dim=1) == labels) & (labels == 1))
             
-            # if labels is probability over classes, correct is label closest to classes
-            if len(labels.shape) == 1:
-                num_correct += torch.sum((torch.argmax(outputs, dim=1) == labels))
-            else:
-                num_correct += torch.sum((torch.argmax(outputs, dim=1) == torch.argmax(labels, dim=1)))
-            
-            num_total += labels.shape[0]
+            num_total_neutral += torch.sum(labels == 0).item()
+            num_total_selection += torch.sum(labels == 1).item()
             output_list.append(outputs)
             label_list.append(labels)
             path_list += list(paths)
             
-        print("Acc: ", num_correct.item()/num_total)
+        print("Neutral Acc: ", num_correct_neutral.item()/num_total_neutral)
+        print("Selection Acc: ", num_correct_selection.item() / num_total_selection)
+        print("Total Acc: ", (num_correct_selection.item() + num_correct_neutral.item()) / (num_total_neutral + num_total_selection))
         
         end_time = time.perf_counter()
         inference_time = end_time-start_time

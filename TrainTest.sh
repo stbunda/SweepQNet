@@ -57,26 +57,24 @@ do
 	esac
 done
 
-ms2txt -i $input_path/train/neutral.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/train/split_txt/neutral;
+./ms2txt -i $input_path/train/neutral.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/train/split_txt/neutral;
 
-ms2txt -i $input_path/train/selection.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/train/split_txt/selection;
+./ms2txt -i $input_path/train/selection.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/train/split_txt/selection;
 
 python win2img.py -i $output_path/train/split_txt/neutral -o $output_path/train/images/neutral -w $win_snp -h $height -f png -m "$color";
 
 python win2img.py -i $output_path/train/split_txt/selection -o $output_path/train/images/selection -w $win_snp -h $height -f png -m "$color";
 
 ########
-ms2txt -i $input_path/test/neutral.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/test/split_txt/neutral;
+./ms2txt -i $input_path/test/neutral.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/test/split_txt/neutral;
 
-ms2txt -i $input_path/test/selection.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/test/split_txt/selection;
+./ms2txt -i $input_path/test/selection.ms -c "$center" -w $win_snp -s $win_site -l $length -r $min_snp -a $modeA -b $modeB -o $output_path/test/split_txt/selection;
 
 python win2img.py -i $output_path/test/split_txt/neutral -o $output_path/test/images/neutral -w $win_snp -h $height -f png -m "$color";
 
 python win2img.py -i $output_path/test/split_txt/selection -o $output_path/test/images/selection -w $win_snp -h $height -f png -m "$color";
 
 ###########
-python main.py --mode train --platform cuda --threads 8 --epochs 100 --ipath $output_path/train/images --opath $output_path/train/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) -h 128 -w 128 -c SweepNet -b 8 -x 0 -y 0 -f 0
+python main.py --mode train --platform cuda --threads 8 --epochs 100 --ipath $output_path/train/images --opath $output_path/train/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) -h 128 -w 128 -c SweepNet -b 8
 
-python main.py --mode predict --platform cuda --threads 8 --epochs 100 -d $output_path/train/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) --ipath $output_path/test/images/neutral --opath $output_path/test/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) -h 128 -w 128 -c SweepNet -b 8 -x 0 -y 0 -f 0
-
-python main.py --mode predict --platform cuda --threads 8 --epochs 100 -d $output_path/train/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) --ipath $output_path/test/images/selection --opath $output_path/test/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) -h 128 -w 128 -c SweepNet -b 8 -x 0 -y 0 -f 0
+python main.py --mode predict --platform cuda --threads 8 --epochs 100 -d $output_path/train/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) --ipath $output_path/test/images --opath $output_path/test/Model_A$((modeA))_B$((modeB))_"$center"_w$((win_snp))h$((height)) -h 128 -w 128 -c SweepNet -b 8

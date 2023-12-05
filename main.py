@@ -9,14 +9,11 @@ import getopt
 import time
 import sys
     
-def train(height, width, epochs, batch, platform, opath, ipath, model_class, use_bp_distance, load_binary, train_detect):
+def train(height, width, epochs, batch, platform, opath, ipath, model_class):
     print("Training model ", opath)
        
     lr = 0.5e-3
-    if use_bp_distance:
-        channels = 2
-    else:
-        channels = 1
+    channels = 1
 
     if model_class == "SweepNet":
         model = SweepNet(height, width, channels=channels)
@@ -24,24 +21,19 @@ def train(height, width, epochs, batch, platform, opath, ipath, model_class, use
         raise ValueError("Unknown model class")
         
     validation = True
-    if train_detect:
-        validation == False
-        
-    train_loader, val_loader = get_loader(ipath, 128, class_folders=True, shuffle=True, load_binary=load_binary, shuffle_row=True, mix_images=False, validation=validation, train_detect=train_detect)       
+
+    train_loader, val_loader = get_loader(ipath, 128, class_folders=True, shuffle=True, shuffle_row=True, mix_images=False, validation=validation)
     model, history = train_model(model, train_loader, epochs, lr=lr, loss_weights=None, platform=platform, val_loader=val_loader, mini_batch_size=batch)
     torch.save(model.state_dict(), os.path.join(opath, 'model.pt'))
     
         
-def test(height, width, platform, mpath, ipath, opath, model_class, use_bp_distance, load_binary):
+def test(height, width, platform, mpath, ipath, opath, model_class):
     print("Testing model ", mpath)
     
     # set class folders to false for production
-    test_loader, _ = get_loader(ipath, batch_size=128, class_folders=False, shuffle=False, load_binary=load_binary, shuffle_row=False, mix_images=False, validation=False, train_detect=False)
+    test_loader, _ = get_loader(ipath, batch_size=128, class_folders=True, shuffle=False, shuffle_row=False, mix_images=False, validation=False)
               
-    if use_bp_distance:
-        channels = 2
-    else:
-        channels = 1
+    channels = 1
     
     if model_class == "SweepNet":
         model = SweepNet(height, width, channels=channels)
@@ -120,7 +112,7 @@ def main(argv):
 
     if (mode == "train"):
         start=time.time()
-        train(int(height), int(width), int(epochs), int(batch), platform, opath, ipath, model_class, int(use_bp_distance), int(load_binary), int(train_detect))
+        train(int(height), int(width), int(epochs), int(batch), platform, opath, ipath, model_class)
         end=time.time()
         with open(opath + "/image-dimensions.txt", "w") as f:
             f.write(str(str(height) + " " + str(width)))
@@ -128,7 +120,7 @@ def main(argv):
             
     elif (mode == "predict"):
         start=time.time()
-        test(int(height), int(width), platform, mpath, ipath, opath, model_class, int(use_bp_distance), int(load_binary))
+        test(int(height), int(width), platform, mpath, ipath, opath, model_class)
         end=time.time()
         
     else:

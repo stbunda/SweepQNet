@@ -51,7 +51,7 @@ _ms2txt_ is an already-generated C program compiled under x86 architecture. For 
 
 ``gcc Extract.c -o ms2txt -lm``
 
-To allow ms2txt to modify files:
+To allow ms2txt to run as executable:
 
 ``chmod +x ms2txt``
 
